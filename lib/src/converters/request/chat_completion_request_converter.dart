@@ -51,14 +51,13 @@ class ChatCompletionRequestConverter {
     );
 
     // Convert tools.
-    final geminiTool = ToolMapper.toGeminiTools(request.tools);
-    final tools = geminiTool != null ? [geminiTool] : null;
+    final tools = buildTools(request);
 
     // Convert tool choice.
-    final toolConfig = ToolMapper.toGeminiToolConfig(request.toolChoice);
+    final toolConfig = buildToolConfig(request);
 
     // Convert generation config.
-    final generationConfig = _buildGenerationConfig(request);
+    final generationConfig = buildGenerationConfig(request);
 
     // Log unsupported parameters.
     _logUnsupported(request);
@@ -72,7 +71,21 @@ class ChatCompletionRequestConverter {
     );
   }
 
-  static gai.GenerationConfig? _buildGenerationConfig(
+  /// Builds the list of Gemini tools from an OpenAI request.
+  static List<gai.Tool>? buildTools(oai.ChatCompletionCreateRequest request) {
+    final geminiTool = ToolMapper.toGeminiTools(request.tools);
+    return geminiTool != null ? [geminiTool] : null;
+  }
+
+  /// Builds the Gemini tool configuration from an OpenAI request's tool choice.
+  static gai.ToolConfig? buildToolConfig(
+    oai.ChatCompletionCreateRequest request,
+  ) {
+    return ToolMapper.toGeminiToolConfig(request.toolChoice);
+  }
+
+  /// Builds the Gemini generation configuration from an OpenAI request.
+  static gai.GenerationConfig? buildGenerationConfig(
     oai.ChatCompletionCreateRequest request,
   ) {
     final maxTokens = request.maxCompletionTokens ?? request.maxTokens;
@@ -109,7 +122,7 @@ class ChatCompletionRequestConverter {
     }
 
     // Map reasoning effort to thinking config.
-    final thinkingConfig = _buildThinkingConfig(request.reasoningEffort);
+    final thinkingConfig = buildThinkingConfig(request.reasoningEffort);
 
     final hasAnyConfig = maxTokens != null ||
         request.temperature != null ||
@@ -134,7 +147,8 @@ class ChatCompletionRequestConverter {
     );
   }
 
-  static gai.ThinkingConfig? _buildThinkingConfig(
+  /// Builds the Gemini thinking configuration from an OpenAI reasoning effort.
+  static gai.ThinkingConfig? buildThinkingConfig(
     oai.ReasoningEffort? effort,
   ) {
     if (effort == null) return null;

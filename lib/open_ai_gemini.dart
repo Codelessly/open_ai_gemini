@@ -19,6 +19,9 @@
 ///   `thinkingConfig` and surfaces thinking tokens as `reasoningContent`
 library;
 
+// Client
+export 'src/client/client.dart' show GeminiOpenAIClient;
+
 // Converters
 export 'src/converters/request/chat_completion_request_converter.dart'
     show ChatCompletionRequestConverter, GeminiRequestConversionResult;

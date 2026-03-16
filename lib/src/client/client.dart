@@ -2,6 +2,8 @@ import 'package:googleai_dart/googleai_dart.dart' as gai;
 import 'package:http/http.dart' as http;
 import 'package:openai_dart/openai_dart.dart';
 // ignore: implementation_imports, depend_on_referenced_packages
+import 'package:googleai_dart/src/resources/cached_contents_resource.dart';
+// ignore: implementation_imports, depend_on_referenced_packages
 import 'package:openai_dart/src/client/request_builder.dart';
 
 import '../converters/request/chat_completion_request_converter.dart';
@@ -50,6 +52,32 @@ class GeminiOpenAIClient extends OpenAIClient {
   /// preserved for Gemini 3+ models. These are accumulated across multiple
   /// `create()` and `createStream()` calls.
   Map<String, String> thoughtSignatures = {};
+
+  /// The resource name of a cached content to use for subsequent requests.
+  ///
+  /// Set this to a cached content resource name (e.g., `cachedContents/abc123`)
+  /// to enable Gemini context caching. The cached content is prepended to each
+  /// request's contents.
+  ///
+  /// Create cached content via [cachedContents], then assign the returned
+  /// name here:
+  /// ```dart
+  /// final cached = await client.cachedContents.create(
+  ///   CachedContent(
+  ///     model: 'models/gemini-2.5-flash',
+  ///     systemInstruction: Content(parts: [TextPart('You are helpful.')]),
+  ///     contents: [...],
+  ///     ttl: '3600s',
+  ///   ),
+  /// );
+  /// client.cachedContent = cached.name;
+  /// ```
+  String? cachedContent;
+
+  /// Access to the underlying Gemini cached contents API for creating,
+  /// listing, updating, and deleting cached content resources.
+  CachedContentsResource get cachedContents =>
+      _geminiClient.cachedContents;
 
   /// Creates a new GeminiOpenAIClient.
   ///
@@ -188,6 +216,7 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
           ChatCompletionRequestConverter.buildToolConfig(request)?.toJson(),
       generationConfig:
           ChatCompletionRequestConverter.buildGenerationConfig(request),
+      cachedContent: owner.cachedContent,
     );
 
     // Call Gemini API.
@@ -231,6 +260,7 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
           ChatCompletionRequestConverter.buildToolConfig(request)?.toJson(),
       generationConfig:
           ChatCompletionRequestConverter.buildGenerationConfig(request),
+      cachedContent: owner.cachedContent,
     );
 
     // Stream from Gemini API.

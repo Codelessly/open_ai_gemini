@@ -22,12 +22,16 @@ class GeminiRequestConversionResult {
   /// The generation configuration.
   final gai.GenerationConfig? generationConfig;
 
+  /// The resource name of cached content to use (e.g., `cachedContents/abc`).
+  final String? cachedContent;
+
   const GeminiRequestConversionResult({
     required this.contents,
     this.systemInstruction,
     this.tools,
     this.toolConfig,
     this.generationConfig,
+    this.cachedContent,
   });
 }
 
@@ -43,6 +47,7 @@ class ChatCompletionRequestConverter {
   static GeminiRequestConversionResult convert(
     oai.ChatCompletionCreateRequest request, {
     Map<String, String>? thoughtSignatures,
+    String? cachedContent,
   }) {
     // Convert messages.
     final messageResult = MessageContentConverter.toGemini(
@@ -68,6 +73,7 @@ class ChatCompletionRequestConverter {
       tools: tools,
       toolConfig: toolConfig,
       generationConfig: generationConfig,
+      cachedContent: cachedContent,
     );
   }
 
@@ -99,10 +105,10 @@ class ChatCompletionRequestConverter {
         case oai.JsonObjectResponseFormat():
           responseMimeType = 'application/json';
         case oai.JsonSchemaResponseFormat(
-            :final name,
-            :final schema,
-            :final description,
-          ):
+          :final name,
+          :final schema,
+          :final description,
+        ):
           responseMimeType = 'application/json';
           responseSchema = ToolMapper.sanitizeSchema({
             'type': 'OBJECT',
@@ -124,7 +130,8 @@ class ChatCompletionRequestConverter {
     // Map reasoning effort to thinking config.
     final thinkingConfig = buildThinkingConfig(request.reasoningEffort);
 
-    final hasAnyConfig = maxTokens != null ||
+    final hasAnyConfig =
+        maxTokens != null ||
         request.temperature != null ||
         request.topP != null ||
         request.stop != null ||

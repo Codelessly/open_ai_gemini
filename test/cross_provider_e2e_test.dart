@@ -64,25 +64,25 @@ void main() {
   String executeToolCall(String name, Map<String, dynamic> args) {
     return switch (name) {
       'lookup_capital' => jsonEncode({
-          'capital': switch ((args['country'] as String?)?.toLowerCase()) {
-            'france' => 'Paris',
-            'japan' => 'Tokyo',
-            'brazil' => 'Brasília',
-            'australia' => 'Canberra',
-            _ => 'Unknown',
-          },
-          'country': args['country'],
-        }),
+        'capital': switch ((args['country'] as String?)?.toLowerCase()) {
+          'france' => 'Paris',
+          'japan' => 'Tokyo',
+          'brazil' => 'Brasília',
+          'australia' => 'Canberra',
+          _ => 'Unknown',
+        },
+        'country': args['country'],
+      }),
       'lookup_population' => jsonEncode({
-          'population': switch ((args['city'] as String?)?.toLowerCase()) {
-            'paris' => '2.1 million',
-            'tokyo' => '13.9 million',
-            'brasília' || 'brasilia' => '3.0 million',
-            'canberra' => '460,000',
-            _ => 'Unknown',
-          },
-          'city': args['city'],
-        }),
+        'population': switch ((args['city'] as String?)?.toLowerCase()) {
+          'paris' => '2.1 million',
+          'tokyo' => '13.9 million',
+          'brasília' || 'brasilia' => '3.0 million',
+          'canberra' => '460,000',
+          _ => 'Unknown',
+        },
+        'city': args['city'],
+      }),
       _ => jsonEncode({'error': 'Unknown function: $name'}),
     };
   }
@@ -92,13 +92,14 @@ void main() {
   void handleToolCalls(oai.AssistantMessage msg) {
     if (msg.toolCalls == null || msg.toolCalls!.isEmpty) return;
     for (final toolCall in msg.toolCalls!) {
-      final args =
-          jsonDecode(toolCall.function.arguments) as Map<String, dynamic>;
+      final args = jsonDecode(toolCall.function.arguments) as Map<String, dynamic>;
       final result = executeToolCall(toolCall.function.name, args);
-      history.add(oai.ChatMessage.tool(
-        toolCallId: toolCall.id,
-        content: result,
-      ));
+      history.add(
+        oai.ChatMessage.tool(
+          toolCallId: toolCall.id,
+          content: result,
+        ),
+      );
     }
   }
 
@@ -254,10 +255,12 @@ void main() {
     'E2E: 12 round-trips alternating GPT-5.1 ↔ Gemini 3',
     () async {
       // Add a system message to anchor the conversation.
-      history.add(oai.ChatMessage.system(
-        'You are a helpful geography assistant. When asked about capitals or '
-        'populations, use the provided tools. Keep responses brief.',
-      ));
+      history.add(
+        oai.ChatMessage.system(
+          'You are a helpful geography assistant. When asked about capitals or '
+          'populations, use the provided tools. Keep responses brief.',
+        ),
+      );
 
       // Define 12 prompts that build on each other, alternating providers.
       // Odd rounds = GPT-5.1, Even rounds = Gemini 3 (1-indexed).
@@ -282,16 +285,14 @@ void main() {
         ),
         // 3: GPT-5.1 - tool call (lookup_capital)
         _Round(
-          prompt:
-              'What is the capital of France? Use the lookup_capital tool.',
+          prompt: 'What is the capital of France? Use the lookup_capital tool.',
           provider: 'openai',
           expectToolCalls: true,
           validator: (r) => expect(r.toLowerCase(), contains('paris')),
         ),
         // 4: Gemini 3 - tool call (lookup_capital), building on GPT's context
         _Round(
-          prompt:
-              'What about Japan\'s capital? Use the lookup_capital tool.',
+          prompt: 'What about Japan\'s capital? Use the lookup_capital tool.',
           provider: 'gemini',
           expectToolCalls: true,
           validator: (r) => expect(r.toLowerCase(), contains('tokyo')),
@@ -320,8 +321,7 @@ void main() {
         ),
         // 8: Gemini 3 - tool call for new country
         _Round(
-          prompt:
-              'What is the capital of Brazil? Use the lookup_capital tool.',
+          prompt: 'What is the capital of Brazil? Use the lookup_capital tool.',
           provider: 'gemini',
           expectToolCalls: true,
           validator: (r) => expect(
@@ -353,8 +353,7 @@ void main() {
         ),
         // 11: GPT-5.1 - new tool call
         _Round(
-          prompt:
-              'What is the capital of Australia? Use the lookup_capital tool.',
+          prompt: 'What is the capital of Australia? Use the lookup_capital tool.',
           provider: 'openai',
           expectToolCalls: true,
           validator: (r) => expect(r.toLowerCase(), contains('canberra')),
@@ -395,8 +394,7 @@ void main() {
 
         if (round.expectToolCalls) {
           // The follow-up response (after tool execution) should have text.
-          expect(response.content, isNotNull,
-              reason: 'Round $roundNum: Expected text after tool execution');
+          expect(response.content, isNotNull, reason: 'Round $roundNum: Expected text after tool execution');
         }
 
         // Validate the response content.
@@ -422,21 +420,16 @@ void main() {
         };
         final preview = switch (msg) {
           oai.UserMessage(:final content) => switch (content) {
-              oai.UserTextContent(:final text) =>
-                text.substring(0, text.length.clamp(0, 60)),
-              _ => '(multipart)',
-            },
+            oai.UserTextContent(:final text) => text.substring(0, text.length.clamp(0, 60)),
+            _ => '(multipart)',
+          },
           oai.AssistantMessage(:final content, :final toolCalls) =>
             toolCalls != null && toolCalls.isNotEmpty
                 ? 'tool_calls: ${toolCalls.map((t) => t.function.name).join(', ')}'
-                : (content ?? '(empty)')
-                    .substring(0, (content ?? '').length.clamp(0, 60)),
-          oai.ToolMessage(:final content) =>
-            content.substring(0, content.length.clamp(0, 50)),
-          oai.SystemMessage(:final content) =>
-            content.substring(0, content.length.clamp(0, 50)),
-          oai.DeveloperMessage(:final content) =>
-            content.substring(0, content.length.clamp(0, 50)),
+                : (content ?? '(empty)').substring(0, (content ?? '').length.clamp(0, 60)),
+          oai.ToolMessage(:final content) => content.substring(0, content.length.clamp(0, 50)),
+          oai.SystemMessage(:final content) => content.substring(0, content.length.clamp(0, 50)),
+          oai.DeveloperMessage(:final content) => content.substring(0, content.length.clamp(0, 50)),
         };
         print('  [$i] $role: $preview');
       }

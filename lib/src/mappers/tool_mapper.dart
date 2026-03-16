@@ -63,26 +63,26 @@ class ToolMapper {
 
     return switch (toolChoice) {
       oai.ToolChoiceAuto() => gai.ToolConfig(
-          functionCallingConfig: gai.FunctionCallingConfig(
-            mode: gai.FunctionCallingMode.auto,
-          ),
+        functionCallingConfig: gai.FunctionCallingConfig(
+          mode: gai.FunctionCallingMode.auto,
         ),
+      ),
       oai.ToolChoiceRequired() => gai.ToolConfig(
-          functionCallingConfig: gai.FunctionCallingConfig(
-            mode: gai.FunctionCallingMode.any,
-          ),
+        functionCallingConfig: gai.FunctionCallingConfig(
+          mode: gai.FunctionCallingMode.any,
         ),
+      ),
       oai.ToolChoiceNone() => gai.ToolConfig(
-          functionCallingConfig: gai.FunctionCallingConfig(
-            mode: gai.FunctionCallingMode.none,
-          ),
+        functionCallingConfig: gai.FunctionCallingConfig(
+          mode: gai.FunctionCallingMode.none,
         ),
+      ),
       oai.ToolChoiceFunction(:final name) => gai.ToolConfig(
-          functionCallingConfig: gai.FunctionCallingConfig(
-            mode: gai.FunctionCallingMode.any,
-            allowedFunctionNames: [name],
-          ),
+        functionCallingConfig: gai.FunctionCallingConfig(
+          mode: gai.FunctionCallingMode.any,
+          allowedFunctionNames: [name],
         ),
+      ),
     };
   }
 
@@ -169,8 +169,7 @@ class ToolMapper {
           (v) => v is Map<String, dynamic> && v.containsKey('const'),
         )) {
           node['type'] = 'STRING';
-          node['enum'] =
-              variants.map((v) => (v as Map<String, dynamic>)['const']).toList();
+          node['enum'] = variants.map((v) => (v as Map<String, dynamic>)['const']).toList();
           continue;
         }
 
@@ -186,9 +185,7 @@ class ToolMapper {
         }
         if (mergedProperties.isNotEmpty) {
           node['type'] ??= 'OBJECT';
-          node['properties'] =
-              (node['properties'] as Map<String, dynamic>? ?? {})
-                ..addAll(mergedProperties);
+          node['properties'] = (node['properties'] as Map<String, dynamic>? ?? {})..addAll(mergedProperties);
         }
       }
     }
@@ -206,8 +203,7 @@ class ToolMapper {
               (node['properties'] as Map<String, dynamic>).addAll(
                 entry.value as Map<String, dynamic>,
               );
-            } else if (entry.key == 'required' &&
-                node.containsKey('required')) {
+            } else if (entry.key == 'required' && node.containsKey('required')) {
               (node['required'] as List).addAll(entry.value as List);
             } else {
               node[entry.key] = entry.value;

@@ -124,9 +124,7 @@ void main() {
         },
       });
 
-      final format =
-          (schema['properties'] as Map<String, dynamic>)['format']
-              as Map<String, dynamic>;
+      final format = (schema['properties'] as Map<String, dynamic>)['format'] as Map<String, dynamic>;
       expect(format['enum'], ['json', 'markdown']);
       expect(format.containsKey('anyOf'), isFalse);
     });
@@ -135,10 +133,14 @@ void main() {
       final schema = ToolMapper.sanitizeSchema({
         'anyOf': [
           {
-            'properties': {'name': {'type': 'string'}},
+            'properties': {
+              'name': {'type': 'string'},
+            },
           },
           {
-            'properties': {'age': {'type': 'integer'}},
+            'properties': {
+              'age': {'type': 'integer'},
+            },
           },
         ],
       });
@@ -286,8 +288,7 @@ void main() {
         thoughtSignatures: thoughtSignatures,
       );
 
-      final fcPart =
-          result.contents.first.parts.whereType<gai.FunctionCallPart>().first;
+      final fcPart = result.contents.first.parts.whereType<gai.FunctionCallPart>().first;
       expect(fcPart.thoughtSignature, [1, 2, 3, 4]);
     });
 
@@ -501,8 +502,7 @@ void main() {
       );
 
       expect(result.thoughtSignatures, isNotEmpty);
-      final toolCallId =
-          result.completion.choices.first.message.toolCalls!.first.id;
+      final toolCallId = result.completion.choices.first.message.toolCalls!.first.id;
       expect(result.thoughtSignatures[toolCallId], isNotNull);
       // Verify round-trip.
       expect(

@@ -26,17 +26,11 @@ export 'src/client/client.dart' show GeminiOpenAIClient;
 export 'src/converters/request/chat_completion_request_converter.dart'
     show ChatCompletionRequestConverter, GeminiRequestConversionResult;
 export 'src/converters/request/message_content_converter.dart'
-    show
-        MessageContentConverter,
-        MessageConversionResult,
-        GeminiMessageConversionResult;
+    show MessageContentConverter, MessageConversionResult, GeminiMessageConversionResult;
 export 'src/converters/response/chat_completion_response_converter.dart'
     show ChatCompletionResponseConverter, GeminiResponseConversionResult;
 export 'src/converters/streaming/stream_event_transformer.dart'
-    show
-        GeminiStreamEventTransformer,
-        GeminiStreamConversionResult,
-        convertGeminiStream;
+    show GeminiStreamEventTransformer, GeminiStreamConversionResult, convertGeminiStream;
 
 // Mappers
 export 'src/mappers/finish_reason_mapper.dart' show FinishReasonMapper;

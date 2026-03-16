@@ -56,8 +56,7 @@ void main() {
         'properties': {
           'timezone': {
             'type': 'string',
-            'description':
-                'The timezone, e.g. "America/New_York", "Europe/London"',
+            'description': 'The timezone, e.g. "America/New_York", "Europe/London"',
           },
         },
         'required': ['timezone'],
@@ -69,15 +68,15 @@ void main() {
   String executeToolCall(String name, Map<String, dynamic> args) {
     return switch (name) {
       'get_weather' => jsonEncode({
-          'temperature': 72,
-          'unit': args['unit'] ?? 'fahrenheit',
-          'condition': 'sunny',
-          'location': args['location'],
-        }),
+        'temperature': 72,
+        'unit': args['unit'] ?? 'fahrenheit',
+        'condition': 'sunny',
+        'location': args['location'],
+      }),
       'get_time' => jsonEncode({
-          'time': '2026-03-09T14:30:00',
-          'timezone': args['timezone'],
-        }),
+        'time': '2026-03-09T14:30:00',
+        'timezone': args['timezone'],
+      }),
       _ => jsonEncode({'error': 'Unknown function: $name'}),
     };
   }
@@ -116,9 +115,7 @@ void main() {
         contents: geminiRequest.contents,
         systemInstruction: geminiRequest.systemInstruction,
         tools: geminiRequest.tools,
-        toolConfig: geminiRequest.toolConfig != null
-            ? geminiRequest.toolConfig!.toJson()
-            : null,
+        toolConfig: geminiRequest.toolConfig?.toJson(),
         generationConfig: geminiRequest.generationConfig,
       ),
     );
@@ -144,8 +141,7 @@ void main() {
       expect(expectToolCalls, isTrue, reason: 'Unexpected tool calls');
 
       for (final toolCall in assistantMsg.toolCalls!) {
-        final args =
-            jsonDecode(toolCall.function.arguments) as Map<String, dynamic>;
+        final args = jsonDecode(toolCall.function.arguments) as Map<String, dynamic>;
         final toolResult = executeToolCall(toolCall.function.name, args);
 
         // Add tool result to OpenAI history.
@@ -175,9 +171,7 @@ void main() {
           contents: followUpGemini.contents,
           systemInstruction: followUpGemini.systemInstruction,
           tools: followUpGemini.tools,
-          toolConfig: followUpGemini.toolConfig != null
-              ? followUpGemini.toolConfig!.toJson()
-              : null,
+          toolConfig: followUpGemini.toolConfig?.toJson(),
           generationConfig: followUpGemini.generationConfig,
         ),
       );
@@ -247,8 +241,7 @@ void main() {
       // -----------------------------------------------------------------------
       print('\n--- Round-trip 2: Tool call (get_weather) ---');
       final response2 = await performRoundTrip(
-        userMessage:
-            'What is the weather in San Francisco? Use the get_weather tool.',
+        userMessage: 'What is the weather in San Francisco? Use the get_weather tool.',
         expectToolCalls: true,
       );
       print('Response: $response2');
@@ -267,8 +260,7 @@ void main() {
       // -----------------------------------------------------------------------
       print('\n--- Round-trip 3: Tool call (get_time) ---');
       final response3 = await performRoundTrip(
-        userMessage:
-            'What time is it in New York? Use the get_time tool.',
+        userMessage: 'What time is it in New York? Use the get_time tool.',
         expectToolCalls: true,
       );
       print('Response: $response3');
@@ -311,15 +303,14 @@ void main() {
         };
         final preview = switch (msg) {
           oai.UserMessage(:final content) => switch (content) {
-              oai.UserTextContent(:final text) => text,
-              _ => '(multipart)',
-            },
+            oai.UserTextContent(:final text) => text,
+            _ => '(multipart)',
+          },
           oai.AssistantMessage(:final content, :final toolCalls) =>
             toolCalls != null
                 ? 'tool_calls: ${toolCalls.map((t) => t.function.name).join(', ')}'
                 : content ?? '(empty)',
-          oai.ToolMessage(:final content) =>
-            content.substring(0, content.length.clamp(0, 50)),
+          oai.ToolMessage(:final content) => content.substring(0, content.length.clamp(0, 50)),
           oai.SystemMessage(:final content) => content,
           oai.DeveloperMessage(:final content) => content,
         };

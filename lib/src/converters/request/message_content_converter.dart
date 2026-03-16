@@ -178,8 +178,7 @@ class MessageContentConverter {
     final parts = <gai.Part>[];
 
     // Add reasoning content as a thought part.
-    if (message.reasoningContent != null &&
-        message.reasoningContent!.isNotEmpty) {
+    if (message.reasoningContent != null && message.reasoningContent!.isNotEmpty) {
       parts.add(gai.TextPart(message.reasoningContent!, thought: true));
     }
 
@@ -213,8 +212,7 @@ class MessageContentConverter {
 
         // Look up thought signature for this tool call.
         List<int>? signature;
-        if (thoughtSignatures != null &&
-            thoughtSignatures.containsKey(toolCall.id)) {
+        if (thoughtSignatures != null && thoughtSignatures.containsKey(toolCall.id)) {
           signature = base64Decode(thoughtSignatures[toolCall.id]!);
         }
 
@@ -414,8 +412,7 @@ class MessageContentConverter {
           }
 
         case gai.FunctionCallPart(:final functionCall, :final thoughtSignature):
-          final id = generateToolCallId?.call() ??
-              'call_${toolCallIndex}_${functionCall.name}';
+          final id = generateToolCallId?.call() ?? 'call_${toolCallIndex}_${functionCall.name}';
           toolCalls.add(
             oai.ToolCall(
               id: id,
@@ -433,8 +430,7 @@ class MessageContentConverter {
 
         case gai.ThoughtSignaturePart(:final thoughtSignature):
           if (thoughtSignature.isNotEmpty) {
-            thoughtSignatures['__last_text__'] =
-                base64Encode(thoughtSignature);
+            thoughtSignatures['__last_text__'] = base64Encode(thoughtSignature);
           }
 
         case gai.InlineDataPart(:final inlineData):
@@ -459,8 +455,7 @@ class MessageContentConverter {
     }
 
     final textContent = textParts.isNotEmpty ? textParts.join('') : null;
-    final reasoning =
-        reasoningParts.isNotEmpty ? reasoningParts.join('') : null;
+    final reasoning = reasoningParts.isNotEmpty ? reasoningParts.join('') : null;
 
     return GeminiMessageConversionResult(
       messages: [
@@ -470,8 +465,7 @@ class MessageContentConverter {
           reasoningContent: reasoning,
         ),
       ],
-      thoughtSignatures:
-          thoughtSignatures.isNotEmpty ? thoughtSignatures : null,
+      thoughtSignatures: thoughtSignatures.isNotEmpty ? thoughtSignatures : null,
       mediaAttachments: media.isNotEmpty ? media : null,
     );
   }

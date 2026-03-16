@@ -65,10 +65,10 @@ class MediaAttachment {
 
   /// Serializes to a JSON-compatible map for storage.
   Map<String, dynamic> toJson() => {
-        'mimeType': mimeType,
-        if (data != null) 'data': data,
-        if (fileUri != null) 'fileUri': fileUri,
-      };
+    'mimeType': mimeType,
+    if (data != null) 'data': data,
+    if (fileUri != null) 'fileUri': fileUri,
+  };
 
   /// Deserializes from a JSON map.
   factory MediaAttachment.fromJson(Map<String, dynamic> json) {

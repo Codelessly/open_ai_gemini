@@ -76,8 +76,7 @@ class GeminiOpenAIClient extends OpenAIClient {
 
   /// Access to the underlying Gemini cached contents API for creating,
   /// listing, updating, and deleting cached content resources.
-  CachedContentsResource get cachedContents =>
-      _geminiClient.cachedContents;
+  CachedContentsResource get cachedContents => _geminiClient.cachedContents;
 
   /// Creates a new GeminiOpenAIClient.
   ///
@@ -91,11 +90,11 @@ class GeminiOpenAIClient extends OpenAIClient {
     String baseUrl = 'https://generativelanguage.googleapis.com',
     gai.ApiVersion apiVersion = gai.ApiVersion.v1beta,
     http.Client? client,
-  })  : _apiKey = apiKey,
-        _baseUrl = baseUrl,
-        _apiVersion = apiVersion,
-        _ownHttpClient = client,
-        super(httpClient: client) {
+  }) : _apiKey = apiKey,
+       _baseUrl = baseUrl,
+       _apiVersion = apiVersion,
+       _ownHttpClient = client,
+       super(httpClient: client) {
     _resourceHttpClient = client ?? http.Client();
     _geminiClient = _buildGeminiClient();
   }
@@ -103,8 +102,7 @@ class GeminiOpenAIClient extends OpenAIClient {
   gai.GoogleAIClient _buildGeminiClient() {
     return gai.GoogleAIClient(
       config: gai.GoogleAIConfig(
-        authProvider:
-            _apiKey.isNotEmpty ? gai.ApiKeyProvider(_apiKey) : null,
+        authProvider: _apiKey.isNotEmpty ? gai.ApiKeyProvider(_apiKey) : null,
         baseUrl: _baseUrl,
         apiVersion: _apiVersion,
       ),
@@ -120,16 +118,16 @@ class GeminiOpenAIClient extends OpenAIClient {
 
   @override
   ChatResource get chat => _geminiChat ??= _GeminiChatResource(
-        geminiClient: _geminiClient,
-        owner: this,
-        // These base resource fields are required by the parent class but unused
-        // since our overridden create()/createStream() bypass OpenAI's HTTP
-        // pipeline.
-        config: config,
-        httpClient: _resourceHttpClient,
-        interceptorChain: interceptorChain,
-        requestBuilder: RequestBuilder(config: config),
-      );
+    geminiClient: _geminiClient,
+    owner: this,
+    // These base resource fields are required by the parent class but unused
+    // since our overridden create()/createStream() bypass OpenAI's HTTP
+    // pipeline.
+    config: config,
+    httpClient: _resourceHttpClient,
+    interceptorChain: interceptorChain,
+    requestBuilder: RequestBuilder(config: config),
+  );
 
   /// Clears accumulated conversation state (thought signatures).
   ///
@@ -170,15 +168,14 @@ class _GeminiChatResource extends ChatResource {
   _GeminiChatCompletionsResource? _geminiCompletions;
 
   @override
-  ChatCompletionsResource get completions =>
-      _geminiCompletions ??= _GeminiChatCompletionsResource(
-        geminiClient: geminiClient,
-        owner: owner,
-        config: config,
-        httpClient: httpClient,
-        interceptorChain: interceptorChain,
-        requestBuilder: requestBuilder,
-      );
+  ChatCompletionsResource get completions => _geminiCompletions ??= _GeminiChatCompletionsResource(
+    geminiClient: geminiClient,
+    owner: owner,
+    config: config,
+    httpClient: httpClient,
+    interceptorChain: interceptorChain,
+    requestBuilder: requestBuilder,
+  );
 }
 
 class _GeminiChatCompletionsResource extends ChatCompletionsResource {
@@ -212,10 +209,8 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
       contents: messageResult.contents,
       systemInstruction: messageResult.systemInstruction,
       tools: ChatCompletionRequestConverter.buildTools(request),
-      toolConfig:
-          ChatCompletionRequestConverter.buildToolConfig(request)?.toJson(),
-      generationConfig:
-          ChatCompletionRequestConverter.buildGenerationConfig(request),
+      toolConfig: ChatCompletionRequestConverter.buildToolConfig(request)?.toJson(),
+      generationConfig: ChatCompletionRequestConverter.buildGenerationConfig(request),
       cachedContent: owner.cachedContent,
     );
 
@@ -256,10 +251,8 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
       contents: messageResult.contents,
       systemInstruction: messageResult.systemInstruction,
       tools: ChatCompletionRequestConverter.buildTools(request),
-      toolConfig:
-          ChatCompletionRequestConverter.buildToolConfig(request)?.toJson(),
-      generationConfig:
-          ChatCompletionRequestConverter.buildGenerationConfig(request),
+      toolConfig: ChatCompletionRequestConverter.buildToolConfig(request)?.toJson(),
+      generationConfig: ChatCompletionRequestConverter.buildGenerationConfig(request),
       cachedContent: owner.cachedContent,
     );
 

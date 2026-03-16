@@ -90,13 +90,11 @@ class ChatCompletionResponseConverter {
             textParts.add(text);
           }
           if (thoughtSignature != null && thoughtSignature.isNotEmpty) {
-            thoughtSignatures['__last_text__'] =
-                base64Encode(thoughtSignature);
+            thoughtSignatures['__last_text__'] = base64Encode(thoughtSignature);
           }
 
         case gai.FunctionCallPart(:final functionCall, :final thoughtSignature):
-          final id = generateToolCallId?.call() ??
-              'call_${toolCallIndex}_${functionCall.name}';
+          final id = generateToolCallId?.call() ?? 'call_${toolCallIndex}_${functionCall.name}';
           toolCalls.add(
             oai.ToolCall(
               id: id,
@@ -114,8 +112,7 @@ class ChatCompletionResponseConverter {
 
         case gai.ThoughtSignaturePart(:final thoughtSignature):
           if (thoughtSignature.isNotEmpty) {
-            thoughtSignatures['__last_text__'] =
-                base64Encode(thoughtSignature);
+            thoughtSignatures['__last_text__'] = base64Encode(thoughtSignature);
           }
 
         case gai.InlineDataPart(:final inlineData):
@@ -141,8 +138,7 @@ class ChatCompletionResponseConverter {
 
     final hasToolCalls = toolCalls.isNotEmpty;
     final textContent = textParts.isNotEmpty ? textParts.join('') : null;
-    final reasoning =
-        reasoningParts.isNotEmpty ? reasoningParts.join('') : null;
+    final reasoning = reasoningParts.isNotEmpty ? reasoningParts.join('') : null;
 
     final finishReason = FinishReasonMapper.toOpenAI(
       candidate?.finishReason,
@@ -187,9 +183,7 @@ class ChatCompletionResponseConverter {
       promptTokens: prompt,
       completionTokens: completion,
       totalTokens: metadata.totalTokenCount ?? (prompt + completion),
-      promptTokensDetails: cached != null
-          ? oai.PromptTokensDetails(cachedTokens: cached)
-          : null,
+      promptTokensDetails: cached != null ? oai.PromptTokensDetails(cachedTokens: cached) : null,
     );
   }
 

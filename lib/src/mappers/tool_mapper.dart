@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:googleai_dart/googleai_dart.dart' as gai;
 import 'package:openai_dart/openai_dart.dart' as oai;
 
+import '../models/media_attachment.dart';
+import '../utils/thought_signature_utils.dart';
+
 /// Maps tool definitions, tool calls, and tool choices between
 /// OpenAI and Gemini formats.
 class ToolMapper {
@@ -116,24 +119,59 @@ class ToolMapper {
   ///
   /// [functionName] is the name of the function that was called.
   /// [content] is the result string from the tool execution.
+  /// [isError] when true, wraps the response in an `error` key instead of
+  /// `output`. This lets the model distinguish between successful and failed
+  /// tool calls.
+  /// [imageData] optional image attachments to include in the response.
+  /// For Gemini 3+ models, these are nested inside `functionResponse.parts`.
+  /// For older models, they are ignored (caller should add them separately).
+  /// [modelId] the target model ID, used to determine Gemini 3 behavior.
   static gai.FunctionResponsePart toGeminiFunctionResponse({
     required String functionName,
     required String content,
+    bool isError = false,
+    List<MediaAttachment>? imageData,
+    String? modelId,
   }) {
-    Map<String, dynamic> response;
-    try {
-      final parsed = jsonDecode(content);
-      if (parsed is Map<String, dynamic>) {
-        response = parsed;
-      } else {
-        response = {'result': parsed};
+    // Build the response map — use "output" for success, "error" for errors.
+    // For success: try to parse JSON content to preserve structured data.
+    // For error: wrap the raw error string.
+    late final Map<String, dynamic> response;
+    if (isError) {
+      response = {'error': content};
+    } else {
+      Object outputValue;
+      try {
+        outputValue = jsonDecode(content);
+      } catch (_) {
+        outputValue = content;
       }
-    } catch (_) {
-      response = {'result': content};
+      response = {'output': outputValue};
+    }
+
+    // Build multimodal parts for Gemini 3 models.
+    List<gai.FunctionResponseInlinePart>? parts;
+    if (imageData != null && imageData.isNotEmpty && isGemini3Model(modelId)) {
+      parts = imageData
+          .where((a) => a.isInline)
+          .map(
+            (a) => gai.FunctionResponseInlinePart(
+              inlineData: gai.FunctionResponseBlob(
+                mimeType: a.mimeType,
+                data: a.data,
+              ),
+            ),
+          )
+          .toList();
+      if (parts.isEmpty) parts = null;
     }
 
     return gai.FunctionResponsePart(
-      gai.FunctionResponse(name: functionName, response: response),
+      gai.FunctionResponse(
+        name: functionName,
+        response: response,
+        parts: parts,
+      ),
     );
   }
 

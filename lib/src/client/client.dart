@@ -198,10 +198,11 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
   }) async {
     final requestModel = request.model;
 
-    // Convert messages.
+    // Convert messages. Pass the model ID for Gemini 3 sentinel support.
     final messageResult = MessageContentConverter.toGemini(
       request.messages,
       thoughtSignatures: owner.thoughtSignatures,
+      modelId: requestModel,
     );
 
     // Build Gemini request.
@@ -240,10 +241,11 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
   }) {
     final requestModel = request.model;
 
-    // Convert messages.
+    // Convert messages. Pass the model ID for Gemini 3 sentinel support.
     final messageResult = MessageContentConverter.toGemini(
       request.messages,
       thoughtSignatures: owner.thoughtSignatures,
+      modelId: requestModel,
     );
 
     // Build Gemini request.

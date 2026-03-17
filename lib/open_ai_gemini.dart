@@ -38,3 +38,8 @@ export 'src/mappers/tool_mapper.dart' show ToolMapper;
 
 // Models
 export 'src/models/media_attachment.dart' show MediaAttachment;
+
+// Utils
+export 'src/utils/sanitize_unicode.dart' show sanitizeSurrogates;
+export 'src/utils/thought_signature_utils.dart'
+    show isValidThoughtSignature, resolveThoughtSignature, isGemini3Model, normalizeToolCallId;

@@ -6,6 +6,8 @@ import 'package:openai_dart/openai_dart.dart' as oai;
 import '../../mappers/tool_mapper.dart';
 import '../../models/media_attachment.dart';
 import '../../utils/logger.dart';
+import '../../utils/sanitize_unicode.dart';
+import '../../utils/thought_signature_utils.dart';
 
 /// Result of converting OpenAI messages to Gemini format.
 class MessageConversionResult {
@@ -40,10 +42,26 @@ class MessageContentConverter {
   /// to media attachments that should be re-injected into the corresponding
   /// Gemini content parts. This is used to round-trip binary data from model
   /// responses through the OpenAI format.
+  ///
+  /// [modelId] is the target Gemini model ID. Used to determine whether
+  /// Gemini 3-specific behaviors are needed (e.g., sentinel thought signatures).
+  ///
+  /// [sourceProvider] and [sourceModel] identify the provider/model that
+  /// generated the assistant messages. When these match the target model,
+  /// thinking blocks and thought signatures are preserved as-is. When they
+  /// differ, thinking blocks are converted to plain text and signatures are
+  /// dropped.
+  ///
+  /// [normalizeToolCallIds] if true, normalizes tool call IDs by stripping
+  /// special characters and capping at 64 characters.
   static MessageConversionResult toGemini(
     List<oai.ChatMessage> messages, {
     Map<String, String>? thoughtSignatures,
     Map<int, List<MediaAttachment>>? mediaAttachments,
+    String? modelId,
+    String? sourceProvider,
+    String? sourceModel,
+    bool normalizeToolCallIds = false,
   }) {
     final systemParts = <String>[];
     final contents = <gai.Content>[];
@@ -63,10 +81,10 @@ class MessageContentConverter {
       final message = messages[i];
       switch (message) {
         case oai.SystemMessage(:final content):
-          systemParts.add(content);
+          systemParts.add(sanitizeSurrogates(content));
 
         case oai.DeveloperMessage(:final content):
-          systemParts.add(content);
+          systemParts.add(sanitizeSurrogates(content));
 
         case oai.UserMessage():
           flushToolParts();
@@ -79,11 +97,17 @@ class MessageContentConverter {
               message,
               thoughtSignatures: thoughtSignatures,
               attachments: mediaAttachments?[i],
+              modelId: modelId,
+              sourceProvider: sourceProvider,
+              sourceModel: sourceModel,
+              normalizeIds: normalizeToolCallIds,
             ),
           );
 
         case oai.ToolMessage():
-          pendingToolParts.add(_convertToolMessage(message, messages));
+          pendingToolParts.add(
+            _convertToolMessage(message, messages, modelId: modelId),
+          );
       }
     }
     flushToolParts();
@@ -106,13 +130,13 @@ class MessageContentConverter {
 
     switch (content) {
       case oai.UserTextContent(:final text):
-        geminiParts.add(gai.TextPart(text));
+        geminiParts.add(gai.TextPart(sanitizeSurrogates(text)));
 
       case oai.UserPartsContent(:final parts):
         for (final part in parts) {
           switch (part) {
             case oai.TextContentPart(:final text):
-              geminiParts.add(gai.TextPart(text));
+              geminiParts.add(gai.TextPart(sanitizeSurrogates(text)));
 
             case oai.ImageContentPart(:final url):
               geminiParts.add(_convertImageUrl(url));
@@ -174,17 +198,58 @@ class MessageContentConverter {
     oai.AssistantMessage message, {
     Map<String, String>? thoughtSignatures,
     List<MediaAttachment>? attachments,
+    String? modelId,
+    String? sourceProvider,
+    String? sourceModel,
+    bool normalizeIds = false,
   }) {
     final parts = <gai.Part>[];
 
-    // Add reasoning content as a thought part.
-    if (message.reasoningContent != null && message.reasoningContent!.isNotEmpty) {
-      parts.add(gai.TextPart(message.reasoningContent!, thought: true));
+    // Determine if the assistant message came from the same provider/model.
+    // Only keep thinking blocks as thought:true when same provider AND model.
+    // When source info is not available, default to NOT marking as thought
+    // (safer fallback that avoids sending stale thinking to wrong model).
+    final isSameProviderAndModel =
+        sourceProvider != null && sourceModel != null && sourceProvider == 'gemini' && sourceModel == modelId;
+
+    // Add reasoning content.
+    final reasoning = message.reasoningContent;
+    if (reasoning != null && reasoning.trim().isNotEmpty) {
+      if (isSameProviderAndModel) {
+        // Same provider/model: keep as thought.
+        parts.add(
+          gai.TextPart(
+            sanitizeSurrogates(reasoning),
+            thought: true,
+          ),
+        );
+      } else {
+        // Different provider or no source info: convert to plain text.
+        parts.add(gai.TextPart(sanitizeSurrogates(reasoning)));
+      }
     }
 
-    // Add text content.
-    if (message.content != null && message.content!.isNotEmpty) {
-      parts.add(gai.TextPart(message.content!));
+    // Add text content (skip empty/whitespace-only).
+    final textContent = message.content;
+    if (textContent != null && textContent.trim().isNotEmpty) {
+      // Resolve text signature for same-provider messages.
+      List<int>? textSignature;
+      if (isSameProviderAndModel && thoughtSignatures != null) {
+        final sigBase64 = resolveThoughtSignature(
+          isSameProviderAndModel: true,
+          signature: thoughtSignatures['__last_text__'],
+        );
+        if (sigBase64 != null) {
+          textSignature = base64Decode(sigBase64);
+        }
+      }
+
+      parts.add(
+        gai.TextPart(
+          sanitizeSurrogates(textContent),
+          thoughtSignature: textSignature,
+        ),
+      );
     }
 
     // Re-inject media attachments that were extracted during Gemini → OpenAI
@@ -210,15 +275,31 @@ class MessageContentConverter {
           args = {'value': toolCall.function.arguments};
         }
 
-        // Look up thought signature for this tool call.
+        // Resolve thought signature for this tool call.
         List<int>? signature;
-        if (thoughtSignatures != null && thoughtSignatures.containsKey(toolCall.id)) {
-          signature = base64Decode(thoughtSignatures[toolCall.id]!);
+        if (isSameProviderAndModel && thoughtSignatures != null) {
+          final sigBase64 = resolveThoughtSignature(
+            isSameProviderAndModel: true,
+            signature: thoughtSignatures[toolCall.id],
+          );
+          if (sigBase64 != null) {
+            signature = base64Decode(sigBase64);
+          }
         }
+
+        // Gemini 3 requires thoughtSignature on ALL function calls when
+        // thinking mode is enabled. Use the sentinel for unsigned calls.
+        if (signature == null && isGemini3Model(modelId)) {
+          signature = skipThoughtSignatureBytes;
+        }
+
+        // Optionally normalize tool call IDs.
+        final id = normalizeIds ? normalizeToolCallId(toolCall.id) : null;
 
         parts.add(
           gai.FunctionCallPart(
             gai.FunctionCall(
+              id: id,
               name: toolCall.function.name,
               args: args,
             ),
@@ -252,14 +333,16 @@ class MessageContentConverter {
 
   static gai.Part _convertToolMessage(
     oai.ToolMessage message,
-    List<oai.ChatMessage> allMessages,
-  ) {
+    List<oai.ChatMessage> allMessages, {
+    String? modelId,
+  }) {
     // Resolve the function name from the preceding assistant message's
     // tool calls by matching on toolCallId.
     final functionName = _resolveToolName(message.toolCallId, allMessages);
     return ToolMapper.toGeminiFunctionResponse(
       functionName: functionName,
-      content: message.content,
+      content: sanitizeSurrogates(message.content),
+      modelId: modelId,
     );
   }
 
@@ -404,11 +487,14 @@ class MessageContentConverter {
 
     for (final part in content.parts) {
       switch (part) {
-        case gai.TextPart(:final text, :final thought):
+        case gai.TextPart(:final text, :final thought, :final thoughtSignature):
           if (thought == true) {
             reasoningParts.add(text);
           } else {
             textParts.add(text);
+          }
+          if (thoughtSignature != null && thoughtSignature.isNotEmpty) {
+            thoughtSignatures['__last_text__'] = base64Encode(thoughtSignature);
           }
 
         case gai.FunctionCallPart(:final functionCall, :final thoughtSignature):

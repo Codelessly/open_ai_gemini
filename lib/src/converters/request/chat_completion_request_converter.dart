@@ -44,15 +44,23 @@ class ChatCompletionRequestConverter {
   ///
   /// [thoughtSignatures] maps tool call IDs to base64-encoded thought
   /// signatures that must be preserved for Gemini 3+ models.
+  ///
+  /// [sourceProvider] and [sourceModel] identify the provider/model that
+  /// generated the assistant messages. Used for cross-provider awareness.
   static GeminiRequestConversionResult convert(
     oai.ChatCompletionCreateRequest request, {
     Map<String, String>? thoughtSignatures,
     String? cachedContent,
+    String? sourceProvider,
+    String? sourceModel,
   }) {
-    // Convert messages.
+    // Convert messages. Pass the request's model as the target modelId.
     final messageResult = MessageContentConverter.toGemini(
       request.messages,
       thoughtSignatures: thoughtSignatures,
+      modelId: request.model,
+      sourceProvider: sourceProvider,
+      sourceModel: sourceModel,
     );
 
     // Convert tools.

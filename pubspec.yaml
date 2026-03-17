@@ -3,7 +3,7 @@ description: >-
   A bidirectional translation layer between OpenAI and Google Gemini API
   specifications. Convert chat completions, tool calls, streaming responses,
   and thinking/reasoning tokens between the two formats.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/Codelessly/open_ai_gemini
 issue_tracker: https://github.com/Codelessly/open_ai_gemini/issues
 topics:

@@ -286,6 +286,9 @@ void main() {
       final result = MessageContentConverter.toGemini(
         messages,
         thoughtSignatures: thoughtSignatures,
+        sourceProvider: 'gemini',
+        sourceModel: 'gemini-3-flash-preview',
+        modelId: 'gemini-3-flash-preview',
       );
 
       final fcPart = result.contents.first.parts.whereType<gai.FunctionCallPart>().first;

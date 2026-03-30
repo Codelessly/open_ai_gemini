@@ -152,6 +152,15 @@ class MessageContentConverter {
               geminiParts.add(
                 gai.InlineDataPart(gai.Blob(mimeType: mimeType, data: data)),
               );
+
+            case oai.FileContentPart(:final fileData, :final fileId):
+              final source = fileData ?? fileId;
+              if (source != null && source.isNotEmpty) {
+                geminiParts.add(_convertImageUrl(source));
+              }
+
+            case oai.RefusalContentPart(:final refusal):
+              geminiParts.add(gai.TextPart(sanitizeSurrogates(refusal)));
           }
         }
     }

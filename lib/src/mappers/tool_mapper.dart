@@ -86,6 +86,22 @@ class ToolMapper {
           allowedFunctionNames: [name],
         ),
       ),
+      oai.ToolChoiceAllowedTools(:final mode, :final tools) => gai.ToolConfig(
+        functionCallingConfig: gai.FunctionCallingConfig(
+          mode: mode == 'required' ? gai.FunctionCallingMode.any : gai.FunctionCallingMode.auto,
+          allowedFunctionNames: [
+            for (final tool in tools)
+              if (tool['type'] == 'function' && tool['function'] is Map<String, dynamic>)
+                (tool['function'] as Map<String, dynamic>)['name'] as String,
+          ],
+        ),
+      ),
+      oai.ToolChoiceCustom(:final name) => gai.ToolConfig(
+        functionCallingConfig: gai.FunctionCallingConfig(
+          mode: gai.FunctionCallingMode.any,
+          allowedFunctionNames: [name],
+        ),
+      ),
     };
   }
 

@@ -20,7 +20,7 @@ dependencies:
   googleai_dart: ^3.6.0
   http: ">=1.4.0 <2.0.0"
   meta: ">=1.17.0 <2.0.0"
-  openai_dart: ^4.0.0
+  openai_dart: ^4.3.0
 
 dev_dependencies:
   lints: ^6.1.0

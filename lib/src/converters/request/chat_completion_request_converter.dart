@@ -169,9 +169,12 @@ class ChatCompletionRequestConverter {
     if (effort == null) return null;
 
     final level = switch (effort) {
+      oai.ReasoningEffort.none => gai.ThinkingLevel.low,
+      oai.ReasoningEffort.minimal => gai.ThinkingLevel.low,
       oai.ReasoningEffort.low => gai.ThinkingLevel.low,
       oai.ReasoningEffort.medium => gai.ThinkingLevel.medium,
       oai.ReasoningEffort.high => gai.ThinkingLevel.high,
+      oai.ReasoningEffort.xhigh => gai.ThinkingLevel.high,
       oai.ReasoningEffort.unknown => gai.ThinkingLevel.medium,
     };
 

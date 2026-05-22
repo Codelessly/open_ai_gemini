@@ -210,7 +210,7 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
       contents: messageResult.contents,
       systemInstruction: messageResult.systemInstruction,
       tools: ChatCompletionRequestConverter.buildTools(request),
-      toolConfig: ChatCompletionRequestConverter.buildToolConfig(request)?.toJson(),
+      toolConfig: ChatCompletionRequestConverter.buildToolConfig(request),
       generationConfig: ChatCompletionRequestConverter.buildGenerationConfig(request),
       cachedContent: owner.cachedContent,
     );
@@ -253,7 +253,7 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
       contents: messageResult.contents,
       systemInstruction: messageResult.systemInstruction,
       tools: ChatCompletionRequestConverter.buildTools(request),
-      toolConfig: ChatCompletionRequestConverter.buildToolConfig(request)?.toJson(),
+      toolConfig: ChatCompletionRequestConverter.buildToolConfig(request),
       generationConfig: ChatCompletionRequestConverter.buildGenerationConfig(request),
       cachedContent: owner.cachedContent,
     );

@@ -162,7 +162,7 @@ void main() {
         contents: geminiReq.contents,
         systemInstruction: geminiReq.systemInstruction,
         tools: geminiReq.tools,
-        toolConfig: geminiReq.toolConfig?.toJson(),
+        toolConfig: geminiReq.toolConfig,
         generationConfig: geminiReq.generationConfig,
       ),
     );
@@ -199,7 +199,7 @@ void main() {
           contents: followUpGemini.contents,
           systemInstruction: followUpGemini.systemInstruction,
           tools: followUpGemini.tools,
-          toolConfig: followUpGemini.toolConfig?.toJson(),
+          toolConfig: followUpGemini.toolConfig,
           generationConfig: followUpGemini.generationConfig,
         ),
       );

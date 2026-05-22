@@ -83,7 +83,7 @@ void main() {
         contents: messageResult.contents,
         systemInstruction: messageResult.systemInstruction,
         tools: ChatCompletionRequestConverter.buildTools(request),
-        toolConfig: ChatCompletionRequestConverter.buildToolConfig(request)?.toJson(),
+        toolConfig: ChatCompletionRequestConverter.buildToolConfig(request),
         generationConfig: ChatCompletionRequestConverter.buildGenerationConfig(request),
       ),
     );

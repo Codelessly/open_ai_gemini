@@ -285,8 +285,36 @@ class MessageContentConverter {
         }
 
         // Resolve thought signature for this tool call.
+        //
+        // Resolution order:
+        //   1. PRIMARY: signature encoded directly in the tool_call.id
+        //      (`tsig_<base64Url>__<originalId>`). This is the canonical path
+        //      for signatures that originated from a previous Gemini response
+        //      and survived a JSON round-trip through the caller's history
+        //      store.
+        //   2. FALLBACK: the in-memory [thoughtSignatures] map, keyed by the
+        //      tool_call.id (encoded or otherwise). This keeps legacy
+        //      single-process usage working when the id was generated outside
+        //      our encoded form (e.g. caller-supplied
+        //      `generateToolCallId`).
+        //   3. SENTINEL: for Gemini 3 only, fall back to the
+        //      `skip_thought_signature_validator` byte sentinel — this
+        //      satisfies the API requirement for unsigned tool calls (e.g.
+        //      function calls originally emitted by a different provider).
+        final decodedId = decodeThoughtSignatureFromToolCallId(toolCall.id);
+
         List<int>? signature;
-        if (isSameProviderAndModel && thoughtSignatures != null) {
+
+        // (1) Embedded signature in id — always trusted regardless of
+        // source tags, because it came from US encoding a real Gemini
+        // signature into the id during a previous response conversion.
+        if (decodedId.signatureBase64 != null &&
+            isValidThoughtSignature(decodedId.signatureBase64)) {
+          signature = base64Decode(decodedId.signatureBase64!);
+        }
+
+        // (2) In-memory map fallback, gated on same-provider/model.
+        if (signature == null && isSameProviderAndModel && thoughtSignatures != null) {
           final sigBase64 = resolveThoughtSignature(
             isSameProviderAndModel: true,
             signature: thoughtSignatures[toolCall.id],
@@ -296,7 +324,7 @@ class MessageContentConverter {
           }
         }
 
-        // Gemini 3 requires thoughtSignature on ALL function calls when
+        // (3) Gemini 3 requires thoughtSignature on ALL function calls when
         // thinking mode is enabled. Use the sentinel for unsigned calls.
         if (signature == null && isGemini3Model(modelId)) {
           signature = skipThoughtSignatureBytes;

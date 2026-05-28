@@ -104,13 +104,19 @@ void main() {
   }
 
   /// Perform a round-trip using OpenAI (GPT-5.1).
+  ///
+  /// Any assistant turn previously produced by Gemini 3 may carry a
+  /// `tsig_<base64Sig>__<originalId>` tool_call.id (up to ~85 chars). OpenAI
+  /// rejects ids longer than 64 chars, so we sanitize the wire payload via
+  /// [sanitizeMessagesForNonGeminiProvider]. The in-memory `history` is kept
+  /// in encoded form so a later Gemini turn can still decode the signature.
   Future<oai.AssistantMessage> roundTripOpenAI(String userMessage) async {
     history.add(oai.ChatMessage.user(userMessage));
 
     final response = await openAIClient.chat.completions.create(
       oai.ChatCompletionCreateRequest(
         model: openAIModel,
-        messages: history,
+        messages: sanitizeMessagesForNonGeminiProvider(history),
         tools: tools,
         toolChoice: oai.ToolChoice.auto(),
       ),
@@ -126,7 +132,7 @@ void main() {
       final followUp = await openAIClient.chat.completions.create(
         oai.ChatCompletionCreateRequest(
           model: openAIModel,
-          messages: history,
+          messages: sanitizeMessagesForNonGeminiProvider(history),
           tools: tools,
         ),
       );

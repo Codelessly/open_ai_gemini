@@ -10,6 +10,7 @@ import '../converters/request/chat_completion_request_converter.dart';
 import '../converters/request/message_content_converter.dart';
 import '../converters/response/chat_completion_response_converter.dart';
 import '../converters/streaming/stream_event_transformer.dart';
+import '../utils/thought_signature_utils.dart';
 
 /// A client that exposes OpenAI's API interface but uses Google's Gemini models.
 ///
@@ -48,9 +49,22 @@ class GeminiOpenAIClient extends OpenAIClient {
 
   /// Thought signatures accumulated across calls.
   ///
-  /// Maps tool call IDs to base64-encoded thought signatures that must be
-  /// preserved for Gemini 3+ models. These are accumulated across multiple
-  /// `create()` and `createStream()` calls.
+  /// Maps tool call IDs to base64-encoded thought signatures captured from
+  /// Gemini responses. These are accumulated across multiple `create()` and
+  /// `createStream()` calls within a single conversation.
+  ///
+  /// The map's lifecycle is bound to the conversation, not to the client
+  /// instance — [clearConversationState] wipes it. Cross-conversation
+  /// persistence happens through a different mechanism: thought signatures
+  /// are also encoded directly into the OpenAI `tool_call.id` field
+  /// (`tsig_<base64Url>__<originalId>`) when responses are converted, so
+  /// signatures survive any JSON round-trip through the caller's history
+  /// store without needing the map at all.
+  ///
+  /// The map remains useful as a hot cache for in-flight conversion (e.g. an
+  /// outgoing request that references the previous turn's tool call by its
+  /// raw id) and as a fallback for tool-call ids that were generated outside
+  /// our encoded form.
   Map<String, String> thoughtSignatures = {};
 
   /// The resource name of a cached content to use for subsequent requests.
@@ -133,7 +147,19 @@ class GeminiOpenAIClient extends OpenAIClient {
   ///
   /// Call this when starting a new conversation to avoid carrying over
   /// thought signatures from previous conversations.
+  ///
+  /// Cross-conversation persistence of signatures is handled separately:
+  /// signatures are encoded into the OpenAI `tool_call.id` field when
+  /// responses are converted, so they survive `assistantMessage.toJson()`
+  /// → JSON store → `assistantMessage.fromJson()` round-trips. The map is a
+  /// hot cache, not the source of truth — wiping it is safe and correct.
   void clearConversationState() {
+    thoughtSignatures = {};
+  }
+
+  /// Alias for [clearConversationState], retained as an explicit reset
+  /// escape hatch with a name that focuses on the signature subset.
+  void clearThoughtSignatures() {
     thoughtSignatures = {};
   }
 
@@ -198,11 +224,20 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
   }) async {
     final requestModel = request.model;
 
-    // Convert messages. Pass the model ID for Gemini 3 sentinel support.
+    // Convert messages. Pass the model ID for Gemini 3 sentinel support,
+    // and tag the source as ('gemini', requestModel) so any accumulated
+    // thought signatures (captured from this same client's previous Gemini
+    // responses) actually get re-injected into outgoing FunctionCallParts.
+    // Without sourceProvider/sourceModel, the converter treats every
+    // assistant message as cross-provider and drops all real signatures,
+    // leaving only the sentinel fallback — which Gemini 3+ rejects with
+    // "Function call is missing a thought_signature" in many turn shapes.
     final messageResult = MessageContentConverter.toGemini(
       request.messages,
       thoughtSignatures: owner.thoughtSignatures,
       modelId: requestModel,
+      sourceProvider: 'gemini',
+      sourceModel: requestModel,
     );
 
     // Build Gemini request.
@@ -241,11 +276,20 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
   }) {
     final requestModel = request.model;
 
-    // Convert messages. Pass the model ID for Gemini 3 sentinel support.
+    // Convert messages. Pass the model ID for Gemini 3 sentinel support,
+    // and tag the source as ('gemini', requestModel) so any accumulated
+    // thought signatures (captured from this same client's previous Gemini
+    // responses) actually get re-injected into outgoing FunctionCallParts.
+    // Without sourceProvider/sourceModel, the converter treats every
+    // assistant message as cross-provider and drops all real signatures,
+    // leaving only the sentinel fallback — which Gemini 3+ rejects with
+    // "Function call is missing a thought_signature" in many turn shapes.
     final messageResult = MessageContentConverter.toGemini(
       request.messages,
       thoughtSignatures: owner.thoughtSignatures,
       modelId: requestModel,
+      sourceProvider: 'gemini',
+      sourceModel: requestModel,
     );
 
     // Build Gemini request.
@@ -266,16 +310,52 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
     );
 
     // Convert the Gemini stream to OpenAI format.
+    //
+    // `convertGeminiStream` populates its internal signature map as the
+    // underlying Gemini stream emits chunks. We tap into the returned event
+    // stream and synchronously mirror any signature that came along with each
+    // emitted tool_call into `owner.thoughtSignatures` BEFORE the event
+    // reaches the downstream consumer. This eliminates the previous race
+    // where the signatures Future's `.then(...)` could resolve AFTER the
+    // upstream tool-call loop had already kicked off the NEXT request, which
+    // would then read an empty map.
+    //
+    // Tool-call signatures are ALSO baked into the emitted tool_call.id via
+    // the `tsig_…__` encoding, so even consumers that never read
+    // `owner.thoughtSignatures` see the signatures travel with the message.
+    // The map remains useful for text signatures (`__last_text__`) and for
+    // ids generated outside our encoded form.
     final result = convertGeminiStream(
       geminiStream,
       model: requestModel,
     );
 
-    // Accumulate thought signatures when the stream completes.
+    final tappedEvents = result.events.map((event) {
+      final choices = event.choices;
+      if (choices == null) return event;
+      for (final choice in choices) {
+        final toolCallDeltas = choice.delta.toolCalls;
+        if (toolCallDeltas == null) continue;
+        for (final delta in toolCallDeltas) {
+          final id = delta.id;
+          if (id == null) continue;
+          final decoded = decodeThoughtSignatureFromToolCallId(id);
+          if (decoded.signatureBase64 != null) {
+            owner.thoughtSignatures[id] = decoded.signatureBase64!;
+          }
+        }
+      }
+      return event;
+    });
+
+    // Keep the post-completion drain too, so text signatures
+    // (`__last_text__`, which don't have a tool_call.id to encode into) and
+    // any other map entries still land — but do it in a way that's purely
+    // additive. This is no longer correctness-critical for tool calls.
     result.thoughtSignatures.then((sigs) {
       owner.thoughtSignatures.addAll(sigs);
     });
 
-    return result.events;
+    return tappedEvents;
   }
 }

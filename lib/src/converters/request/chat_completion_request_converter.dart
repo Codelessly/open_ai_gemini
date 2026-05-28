@@ -3,6 +3,7 @@ import 'package:openai_dart/openai_dart.dart' as oai;
 
 import '../../mappers/tool_mapper.dart';
 import '../../utils/logger.dart';
+import '../../utils/thought_signature_utils.dart';
 import 'message_content_converter.dart';
 
 /// Result of converting an OpenAI request to Gemini format.
@@ -104,11 +105,29 @@ class ChatCompletionRequestConverter {
   ) {
     final maxTokens = request.maxCompletionTokens ?? request.maxTokens;
 
+    // Gemini's function calling is incompatible with `responseSchema` /
+    // `responseMimeType = application/json`. Per Google's documented
+    // behaviour, when both tools and a JSON response schema are provided,
+    // the schema is silently ignored AND the model frequently emits a
+    // spurious function call instead of the requested JSON. Empirically
+    // (Gemini 3 Flash Preview, 2026-05) the response in this combo is
+    // non-deterministic — sometimes a tool call, sometimes a truncated
+    // text JSON, sometimes a complete text JSON — which surfaces as
+    // intermittent "Failed to parse JSON response" errors upstream.
+    //
+    // OpenAI's spec does allow `tools + response_format` to coexist; this
+    // converter therefore reconciles by dropping the schema (not the
+    // tools) when both are present. Callers that need strict structured
+    // output alongside tools must enforce the schema via a forced tool
+    // call themselves, not via `response_format`.
+    final hasTools =
+        request.tools != null && request.tools!.isNotEmpty;
+
     // Map response format.
     String? responseMimeType;
     Map<String, dynamic>? responseSchema;
     final responseFormat = request.responseFormat;
-    if (responseFormat != null) {
+    if (responseFormat != null && !hasTools) {
       switch (responseFormat) {
         case oai.JsonObjectResponseFormat():
           responseMimeType = 'application/json';
@@ -133,10 +152,34 @@ class ChatCompletionRequestConverter {
         case oai.TextResponseFormat():
           responseMimeType = 'text/plain';
       }
+    } else if (responseFormat != null && hasTools) {
+      GeminiOpenAILogger.warn(
+        'response_format is incompatible with tools on Gemini and has '
+        'been dropped. Gemini ignores responseSchema when tools are '
+        'present and frequently emits spurious tool calls instead of '
+        'JSON. The schema must be enforced via prompt or a forced tool '
+        'call by the caller.',
+      );
     }
 
     // Map reasoning effort to thinking config.
-    final thinkingConfig = buildThinkingConfig(request.reasoningEffort);
+    //
+    // For Gemini 3+ models that are being given tools, default to
+    // thinking-enabled (low level) when the caller didn't specify a
+    // reasoning effort. Without thinking, Gemini 3 does NOT emit
+    // `thoughtSignature` on function-call parts — and on the next
+    // round-trip (replaying the assistant's function_call alongside
+    // the tool result) the API rejects the request with HTTP 400:
+    //   "Function call is missing a thought_signature in functionCall
+    //    parts. This is required for tools to work correctly."
+    // The sentinel fallback this package inserts on unsigned calls
+    // (`skip_thought_signature_validator`) is rejected by the API as
+    // well, so the only real fix is to make Gemini emit real
+    // signatures by enabling thinking.
+    final isGemini3 = isGemini3Model(request.model);
+    final effectiveEffort = request.reasoningEffort ??
+        ((hasTools && isGemini3) ? oai.ReasoningEffort.low : null);
+    final thinkingConfig = buildThinkingConfig(effectiveEffort);
 
     final hasAnyConfig =
         maxTokens != null ||

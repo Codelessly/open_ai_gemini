@@ -5,6 +5,7 @@ import 'package:openai_dart/openai_dart.dart' as oai;
 
 import '../../mappers/finish_reason_mapper.dart';
 import '../../models/media_attachment.dart';
+import '../../utils/thought_signature_utils.dart';
 
 /// Result of converting a Gemini response to OpenAI format.
 class GeminiResponseConversionResult {
@@ -94,7 +95,30 @@ class ChatCompletionResponseConverter {
           }
 
         case gai.FunctionCallPart(:final functionCall, :final thoughtSignature):
-          final id = generateToolCallId?.call() ?? 'call_${toolCallIndex}_${functionCall.name}';
+          final rawId = generateToolCallId?.call() ?? 'call_${toolCallIndex}_${functionCall.name}';
+
+          // Encode the thought signature directly into the tool_call.id when
+          // present. This makes the signature survive
+          // `assistantMessage.toJson() → JSON store → fromJson()` round-trips
+          // through callers (e.g. agent_kit's history rehydration) that do
+          // not know about thought signatures — the OpenAI ChatMessage schema
+          // has no field for the signature, but it does carry tool_call.id
+          // verbatim. The encoded id is opaque to the model; Gemini receives
+          // only the function `name` + `args` on the outgoing path.
+          final String id;
+          if (thoughtSignature != null && thoughtSignature.isNotEmpty) {
+            final sigBase64 = base64Encode(thoughtSignature);
+            id = encodeThoughtSignatureInToolCallId(
+              signatureBase64: sigBase64,
+              originalId: rawId,
+            );
+            // Mirror into the legacy in-memory map keyed by the encoded id so
+            // any caller reading `thoughtSignatures` directly still finds it.
+            thoughtSignatures[id] = sigBase64;
+          } else {
+            id = rawId;
+          }
+
           toolCalls.add(
             oai.ToolCall(
               id: id,
@@ -105,9 +129,6 @@ class ChatCompletionResponseConverter {
               ),
             ),
           );
-          if (thoughtSignature != null && thoughtSignature.isNotEmpty) {
-            thoughtSignatures[id] = base64Encode(thoughtSignature);
-          }
           toolCallIndex++;
 
         case gai.ThoughtSignaturePart(:final thoughtSignature):

@@ -6,6 +6,7 @@ import 'package:openai_dart/openai_dart.dart' as oai;
 
 import '../../mappers/finish_reason_mapper.dart';
 import '../../models/media_attachment.dart';
+import '../../utils/thought_signature_utils.dart';
 
 /// Transforms a stream of Gemini [gai.GenerateContentResponse] chunks into
 /// OpenAI-compatible [oai.ChatStreamEvent]s.
@@ -116,7 +117,24 @@ GeminiStreamConversionResult convertGeminiStream(
             }
 
           case gai.FunctionCallPart(:final functionCall, :final thoughtSignature):
-            final id = generateToolCallId?.call() ?? 'call_${toolCallIndex}_${functionCall.name}';
+            final rawId = generateToolCallId?.call() ?? 'call_${toolCallIndex}_${functionCall.name}';
+
+            // Encode the thought signature directly into the streamed
+            // tool_call.id so it travels with the assistant message all the
+            // way through the caller's JSON history store. See the matching
+            // comment in `ChatCompletionResponseConverter` for the full
+            // rationale.
+            final String id;
+            if (thoughtSignature != null && thoughtSignature.isNotEmpty) {
+              final sigBase64 = base64Encode(thoughtSignature);
+              id = encodeThoughtSignatureInToolCallId(
+                signatureBase64: sigBase64,
+                originalId: rawId,
+              );
+              signatures[id] = sigBase64;
+            } else {
+              id = rawId;
+            }
 
             // Emit tool call start delta.
             controller.add(
@@ -138,9 +156,6 @@ GeminiStreamConversionResult convertGeminiStream(
               ),
             );
 
-            if (thoughtSignature != null && thoughtSignature.isNotEmpty) {
-              signatures[id] = base64Encode(thoughtSignature);
-            }
             toolCallIndex++;
 
           case gai.ThoughtSignaturePart(:final thoughtSignature):

@@ -17,10 +17,10 @@ environment:
   sdk: ^3.11.0
 
 dependencies:
-  googleai_dart: ^6.3.0
+  googleai_dart: ^7.0.0
   http: ">=1.4.0 <2.0.0"
   meta: ">=1.17.0 <2.0.0"
-  openai_dart: ^5.0.0
+  openai_dart: ^6.0.0
 
 dev_dependencies:
   lints: ^6.1.0

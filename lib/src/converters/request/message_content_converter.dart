@@ -308,8 +308,7 @@ class MessageContentConverter {
         // (1) Embedded signature in id — always trusted regardless of
         // source tags, because it came from US encoding a real Gemini
         // signature into the id during a previous response conversion.
-        if (decodedId.signatureBase64 != null &&
-            isValidThoughtSignature(decodedId.signatureBase64)) {
+        if (decodedId.signatureBase64 != null && isValidThoughtSignature(decodedId.signatureBase64)) {
           signature = base64Decode(decodedId.signatureBase64!);
         }
 

@@ -129,7 +129,14 @@ DecodedToolCallId decodeThoughtSignatureFromToolCallId(String encodedId) {
     return DecodedToolCallId(signatureBase64: null, originalId: encodedId);
   }
   final afterPrefix = encodedId.substring(_thoughtSignatureIdPrefix.length);
-  final sepIndex = afterPrefix.indexOf(_thoughtSignatureIdSeparator);
+  // Use lastIndexOf, not indexOf: the base64Url alphabet includes `_`, so a
+  // legitimate encoded signature can itself contain runs of `__`. The encoded
+  // form is `<base64Url>__<originalId>`, so the separator we want is the
+  // RIGHTMOST `__` in the substring. lastIndexOf is safe because the original
+  // id is expected to come from a caller-controlled `generateToolCallId`
+  // implementation, not from arbitrary user input — the encoder never appends
+  // a separator to the original id segment.
+  final sepIndex = afterPrefix.lastIndexOf(_thoughtSignatureIdSeparator);
   if (sepIndex < 0) {
     // Malformed — treat as a plain id.
     return DecodedToolCallId(signatureBase64: null, originalId: encodedId);

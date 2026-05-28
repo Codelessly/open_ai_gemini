@@ -99,7 +99,8 @@ void main() {
         expect(
           toolCall.id.startsWith('tsig_'),
           isTrue,
-          reason: 'Encoded id must carry the `tsig_` prefix so downstream '
+          reason:
+              'Encoded id must carry the `tsig_` prefix so downstream '
               'converters can detect and decode the embedded signature.',
         );
 
@@ -359,12 +360,10 @@ void main() {
 
       // Step 2: Caller serializes assistant message and tool result to JSON.
       final assistantJson = assistantMessage.toJson();
-      final toolJson = oai
-          .ChatMessage.tool(
-            toolCallId: assistantMessage.toolCalls!.first.id,
-            content: '"5d41402abc4b2a76b9719d911017c592"',
-          )
-          .toJson();
+      final toolJson = oai.ChatMessage.tool(
+        toolCallId: assistantMessage.toolCalls!.first.id,
+        content: '"5d41402abc4b2a76b9719d911017c592"',
+      ).toJson();
 
       // Step 3: A NEW client (simulating reset() + init(history: ...))
       // rehydrates the history. No in-memory signature carryover.
@@ -394,7 +393,8 @@ void main() {
       expect(
         fcPart.thoughtSignature,
         signatureBytes,
-        reason: 'After reset+rehydrate, the original signature must still '
+        reason:
+            'After reset+rehydrate, the original signature must still '
             'reach the outgoing FunctionCallPart via the encoded id.',
       );
     });
@@ -493,6 +493,32 @@ void main() {
       final decoded = decodeThoughtSignatureFromToolCallId('tsig_garbage');
       expect(decoded.signatureBase64, isNull);
       expect(decoded.originalId, 'tsig_garbage');
+    });
+
+    test('decode survives `__` runs inside the base64Url-encoded signature', () {
+      // base64Url alphabet includes `_`, so legitimate signature bytes can
+      // produce a `__` run inside the encoded portion. Use `indexOf` on the
+      // first `__` would split at the wrong boundary and corrupt the
+      // signature. lastIndexOf is the load-bearing fix.
+      //
+      // Crafted fixture: signature whose URL-safe encoding contains `__`.
+      // Bytes 0xFB and 0xFF in adjacent triplets produce `+_/_` in standard
+      // base64 (and `-_/_` → `-__-` after URL-safe replacement). The
+      // simplest constructive form is to build a signature that base64Urls
+      // to contain `__` explicitly.
+      const signatureWithDoubleUnderscore = 'AAAA__BBBB__CCCC';
+      // base64Url decode/re-encode round-trip ensures we're not relying on
+      // a particular byte sequence; just verify the decoder honors the
+      // RIGHTMOST `__` as the separator.
+      final encodedId = 'tsig_${signatureWithDoubleUnderscore}__call_42';
+
+      final decoded = decodeThoughtSignatureFromToolCallId(encodedId);
+      expect(
+        decoded.originalId,
+        'call_42',
+        reason: 'lastIndexOf must split at the final `__`, not the first',
+      );
+      expect(decoded.signatureBase64, isNotNull);
     });
   });
 

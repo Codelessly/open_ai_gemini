@@ -120,8 +120,7 @@ class ChatCompletionRequestConverter {
     // tools) when both are present. Callers that need strict structured
     // output alongside tools must enforce the schema via a forced tool
     // call themselves, not via `response_format`.
-    final hasTools =
-        request.tools != null && request.tools!.isNotEmpty;
+    final hasTools = request.tools != null && request.tools!.isNotEmpty;
 
     // Map response format.
     String? responseMimeType;
@@ -177,8 +176,7 @@ class ChatCompletionRequestConverter {
     // well, so the only real fix is to make Gemini emit real
     // signatures by enabling thinking.
     final isGemini3 = isGemini3Model(request.model);
-    final effectiveEffort = request.reasoningEffort ??
-        ((hasTools && isGemini3) ? oai.ReasoningEffort.low : null);
+    final effectiveEffort = request.reasoningEffort ?? ((hasTools && isGemini3) ? oai.ReasoningEffort.low : null);
     final thinkingConfig = buildThinkingConfig(effectiveEffort);
 
     final hasAnyConfig =

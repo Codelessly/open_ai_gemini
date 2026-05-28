@@ -193,6 +193,34 @@ class ChatCompletionResponseConverter {
     );
   }
 
+  /// Maps Gemini's [UsageMetadata] to the OpenAI-shaped [oai.Usage].
+  ///
+  /// `cachedContentTokenCount` (the count of prompt tokens served from
+  /// Google's implicit context cache OR an explicit `cachedContents/…`
+  /// reference) lands in `promptTokensDetails.cachedTokens` — the same
+  /// slot the OpenAI SDK uses for its own cache reads. Callers that read
+  /// `usage.promptTokensDetails.cachedTokens` get a uniform metric across
+  /// providers.
+  ///
+  /// ### Implicit-caching notes (Google-side behavior)
+  ///
+  /// Google's documentation lists per-family minimums (4096 tokens for
+  /// Gemini 3 / 3.1, 2048 for 2.5 Flash / Pro) but in practice the
+  /// behavior is **model-specific** and not always reliable near those
+  /// minimums:
+  ///
+  ///   * `gemini-3-flash-preview`  — caches reliably at any prefix ≥ ~4K
+  ///   * `gemini-3.1-pro-preview`  — caches reliably at any prefix ≥ ~4K
+  ///   * `gemini-3.5-flash`        — INCONSISTENT in the ~7-15K range;
+  ///                                  caches at ~6K and ≥ ~20K but flips
+  ///                                  on/off in between (probed in
+  ///                                  `open_ai_gemini/tool/probe_3_5_flash_cache.dart`)
+  ///
+  /// If you need reliable caching at a specific prefix size on a model
+  /// whose implicit-cache behavior is flaky, use the explicit
+  /// `cachedContents` API plumbed through [GeminiOpenAIClient.cachedContent].
+  /// That bypasses implicit caching and lets you control the cache name
+  /// and TTL directly.
   static oai.Usage? _convertUsage(gai.UsageMetadata? metadata) {
     if (metadata == null) return null;
 

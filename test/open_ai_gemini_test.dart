@@ -405,6 +405,80 @@ void main() {
     });
   });
 
+  group('ChatCompletionRequestConverter.appendGroundingTools', () {
+    final functionTool = gai.Tool(
+      functionDeclarations: [
+        const gai.FunctionDeclaration(
+          name: 'get_weather',
+          description: 'Get the weather',
+        ),
+      ],
+    );
+
+    test('appends google_search and url_context to a null tools list', () {
+      final result = ChatCompletionRequestConverter.appendGroundingTools(
+        null,
+        enableGoogleSearch: true,
+        enableUrlContext: true,
+      );
+
+      expect(result, isNotNull);
+      expect(result, hasLength(2));
+      expect(result![0].googleSearch, isNotNull);
+      expect(result[0].urlContext, isNull);
+      expect(result[1].urlContext, isNotNull);
+      expect(result[1].googleSearch, isNull);
+    });
+
+    test('preserves the function-declarations tool first, then grounding', () {
+      final result = ChatCompletionRequestConverter.appendGroundingTools(
+        [functionTool],
+        enableGoogleSearch: true,
+        enableUrlContext: true,
+      );
+
+      expect(result, hasLength(3));
+      expect(result![0].functionDeclarations, isNotNull);
+      expect(result[0].functionDeclarations, hasLength(1));
+      expect(result[1].googleSearch, isNotNull);
+      expect(result[2].urlContext, isNotNull);
+    });
+
+    test('appends only google_search when only that flag is set', () {
+      final result = ChatCompletionRequestConverter.appendGroundingTools(
+        null,
+        enableGoogleSearch: true,
+        enableUrlContext: false,
+      );
+
+      expect(result, hasLength(1));
+      expect(result![0].googleSearch, isNotNull);
+      expect(result[0].urlContext, isNull);
+    });
+
+    test('returns the input unchanged when both flags are false', () {
+      final input = [functionTool];
+      final result = ChatCompletionRequestConverter.appendGroundingTools(
+        input,
+        enableGoogleSearch: false,
+        enableUrlContext: false,
+      );
+
+      expect(result, hasLength(1));
+      expect(result, equals(input));
+    });
+
+    test('returns null when no tools and no grounding flags', () {
+      final result = ChatCompletionRequestConverter.appendGroundingTools(
+        null,
+        enableGoogleSearch: false,
+        enableUrlContext: false,
+      );
+
+      expect(result, isNull);
+    });
+  });
+
   group('ChatCompletionResponseConverter', () {
     test('converts a text response', () {
       final response = gai.GenerateContentResponse(

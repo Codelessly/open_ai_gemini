@@ -92,6 +92,37 @@ class ChatCompletionRequestConverter {
     return geminiTool != null ? [geminiTool] : null;
   }
 
+  /// Appends Gemini's native grounding tools to [tools] per the given flags.
+  ///
+  /// [tools] is typically the output of [buildTools] (the function-declaration
+  /// tool, or null). When [enableGoogleSearch] is true, a separate
+  /// `gai.Tool(googleSearch: gai.GoogleSearch())` entry is appended; when
+  /// [enableUrlContext] is true, a separate `gai.Tool(urlContext:
+  /// gai.UrlContext())` entry is appended. Grounding tools are kept as their
+  /// own `gai.Tool` entries (Gemini's documented multi-tool form) rather than
+  /// merged into the function-declarations tool.
+  ///
+  /// Any existing tools are preserved first, in order, followed by
+  /// google_search then url_context. Returns null only when there are no tools
+  /// at all (no input tools and no grounding flags set), so passing both flags
+  /// as false leaves the input unchanged.
+  static List<gai.Tool>? appendGroundingTools(
+    List<gai.Tool>? tools, {
+    required bool enableGoogleSearch,
+    required bool enableUrlContext,
+  }) {
+    if (!enableGoogleSearch && !enableUrlContext) return tools;
+
+    final result = [...?tools];
+    if (enableGoogleSearch) {
+      result.add(gai.Tool(googleSearch: gai.GoogleSearch()));
+    }
+    if (enableUrlContext) {
+      result.add(gai.Tool(urlContext: gai.UrlContext()));
+    }
+    return result.isEmpty ? null : result;
+  }
+
   /// Builds the Gemini tool configuration from an OpenAI request's tool choice.
   static gai.ToolConfig? buildToolConfig(
     oai.ChatCompletionCreateRequest request,

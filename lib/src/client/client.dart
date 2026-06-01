@@ -88,6 +88,20 @@ class GeminiOpenAIClient extends OpenAIClient {
   /// ```
   String? cachedContent;
 
+  /// When true, appends Gemini's native Google Search grounding tool to every
+  /// request, letting the model ground its answers in live web results.
+  ///
+  /// This is sent as a separate native `gai.Tool` entry (it must NOT be passed
+  /// through the OpenAI-compat tools array, which rejects `google_search`).
+  bool enableGoogleSearch = false;
+
+  /// When true, appends Gemini's native URL Context tool to every request,
+  /// letting the model fetch and analyze content from URLs in the prompt.
+  ///
+  /// This is sent as a separate native `gai.Tool` entry (it must NOT be passed
+  /// through the OpenAI-compat tools array, which rejects `url_context`).
+  bool enableUrlContext = false;
+
   /// Access to the underlying Gemini cached contents API for creating,
   /// listing, updating, and deleting cached content resources.
   CachedContentsResource get cachedContents => _geminiClient.cachedContents;
@@ -244,7 +258,11 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
     final geminiRequest = gai.GenerateContentRequest(
       contents: messageResult.contents,
       systemInstruction: messageResult.systemInstruction,
-      tools: ChatCompletionRequestConverter.buildTools(request),
+      tools: ChatCompletionRequestConverter.appendGroundingTools(
+        ChatCompletionRequestConverter.buildTools(request),
+        enableGoogleSearch: owner.enableGoogleSearch,
+        enableUrlContext: owner.enableUrlContext,
+      ),
       toolConfig: ChatCompletionRequestConverter.buildToolConfig(request),
       generationConfig: ChatCompletionRequestConverter.buildGenerationConfig(request),
       cachedContent: owner.cachedContent,
@@ -296,7 +314,11 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
     final geminiRequest = gai.GenerateContentRequest(
       contents: messageResult.contents,
       systemInstruction: messageResult.systemInstruction,
-      tools: ChatCompletionRequestConverter.buildTools(request),
+      tools: ChatCompletionRequestConverter.appendGroundingTools(
+        ChatCompletionRequestConverter.buildTools(request),
+        enableGoogleSearch: owner.enableGoogleSearch,
+        enableUrlContext: owner.enableUrlContext,
+      ),
       toolConfig: ChatCompletionRequestConverter.buildToolConfig(request),
       generationConfig: ChatCompletionRequestConverter.buildGenerationConfig(request),
       cachedContent: owner.cachedContent,

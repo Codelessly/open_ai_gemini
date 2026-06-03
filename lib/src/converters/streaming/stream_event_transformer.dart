@@ -184,6 +184,29 @@ GeminiStreamConversionResult convertGeminiStream(
         }
       }
 
+      // Surface native grounding sources (google_search + url_context).
+      //
+      // Gemini reports retrieved web sources on
+      // `candidate.groundingMetadata.groundingChunks[].web{uri,title}`. The
+      // OpenAI-compatible delta has no annotations field, and openai_dart's
+      // `ChatStreamEvent.toJson()` is a CLOSED map literal — a
+      // `fromJson({...toJson(), key})` round trip would DROP an injected
+      // top-level key. So we emit a [_GeminiGroundedChatStreamEvent] subclass
+      // whose `toJson()` carries a custom `web_search_results` key. The
+      // downstream consumer reads `event.toJson()['web_search_results']`.
+      final webResults = _extractWebSearchResults(candidate);
+      if (webResults.isNotEmpty) {
+        controller.add(
+          _GeminiGroundedChatStreamEvent(
+            base: _buildEvent(
+              state: state,
+              delta: const oai.ChatDelta(),
+            ),
+            webSearchResults: webResults,
+          ),
+        );
+      }
+
       // Emit finish reason if present.
       if (candidate?.finishReason != null) {
         final hasToolCalls = toolCallIndex > 0;
@@ -253,6 +276,26 @@ oai.ChatStreamEvent _buildEvent({
   );
 }
 
+/// Extracts native web-search sources from a Gemini candidate's grounding
+/// metadata. Maps every `groundingChunks[].web` entry that carries a non-empty
+/// `uri` into a `{url, title}` map. Chunks without a web uri (e.g. file-search
+/// retrieved context or map results) are skipped.
+List<Map<String, dynamic>> _extractWebSearchResults(gai.Candidate? candidate) {
+  final chunks = candidate?.groundingMetadata?.groundingChunks;
+  if (chunks == null || chunks.isEmpty) return const [];
+
+  final results = <Map<String, dynamic>>[];
+  for (final chunk in chunks) {
+    final uri = chunk.web?.uri;
+    if (uri == null || uri.isEmpty) continue;
+    results.add({
+      'url': uri,
+      if (chunk.web?.title != null) 'title': chunk.web!.title,
+    });
+  }
+  return results;
+}
+
 oai.Usage _convertUsage(gai.UsageMetadata metadata) {
   final prompt = metadata.promptTokenCount ?? 0;
   final completion = metadata.candidatesTokenCount ?? 0;
@@ -264,6 +307,38 @@ oai.Usage _convertUsage(gai.UsageMetadata metadata) {
     totalTokens: metadata.totalTokenCount ?? (prompt + completion),
     promptTokensDetails: cached != null ? oai.PromptTokensDetails(cachedTokens: cached) : null,
   );
+}
+
+/// A [oai.ChatStreamEvent] that injects native Gemini grounding sources into
+/// its [toJson] output under a custom top-level `web_search_results` key.
+///
+/// openai_dart's `ChatStreamEvent` has no annotations field and its `toJson()`
+/// is a closed map literal, so a `fromJson({...toJson(), key})` round trip
+/// would drop the key. Overriding `toJson()` on a subclass is the only vehicle
+/// that survives the consumer's `event.toJson()` read.
+class _GeminiGroundedChatStreamEvent extends oai.ChatStreamEvent {
+  final List<Map<String, dynamic>> webSearchResults;
+
+  _GeminiGroundedChatStreamEvent({
+    required oai.ChatStreamEvent base,
+    required this.webSearchResults,
+  }) : super(
+         id: base.id,
+         object: base.object,
+         created: base.created,
+         model: base.model,
+         choices: base.choices,
+         usage: base.usage,
+         systemFingerprint: base.systemFingerprint,
+         serviceTier: base.serviceTier,
+         provider: base.provider,
+       );
+
+  @override
+  Map<String, dynamic> toJson() => {
+    ...super.toJson(),
+    'web_search_results': webSearchResults,
+  };
 }
 
 /// Internal stream implementation for the transformer.

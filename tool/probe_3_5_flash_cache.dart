@@ -79,7 +79,7 @@ Future<Map<String, dynamic>> _generateContent({
         {'role': 'user', 'content': userMessage},
       ],
       'max_tokens': 64,
-      if (tools != null) 'tools': tools,
+      'tools': ?tools,
       if (tools != null) 'tool_choice': 'auto',
     });
     final req = await client.postUrl(uri);

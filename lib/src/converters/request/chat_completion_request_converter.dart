@@ -130,6 +130,30 @@ class ChatCompletionRequestConverter {
     return ToolMapper.toGeminiToolConfig(request.toolChoice);
   }
 
+  /// Sets `tool_config.include_server_side_tool_invocations` when native
+  /// grounding is enabled.
+  ///
+  /// Gemini 3.x rejects a request that mixes built-in/server-side tools
+  /// (google_search / url_context, added by [appendGroundingTools]) WITH
+  /// function-declaration tools unless this flag is set — returning
+  /// `400 Please enable tool_config.include_server_side_tool_invocations to
+  /// use Built-in tools with Function calling`. Callers that always carry
+  /// function tools (e.g. tool-using agents) must set it whenever grounding is
+  /// on, so this creates a [gai.ToolConfig] when the request had none.
+  ///
+  /// When neither grounding flag is set, [base] is returned unchanged — no
+  /// behavior change when native search is off.
+  static gai.ToolConfig? applyServerSideToolInvocations(
+    gai.ToolConfig? base, {
+    required bool enableGoogleSearch,
+    required bool enableUrlContext,
+  }) {
+    if (!enableGoogleSearch && !enableUrlContext) return base;
+    return (base ?? const gai.ToolConfig()).copyWith(
+      includeServerSideToolInvocations: true,
+    );
+  }
+
   /// Builds the Gemini generation configuration from an OpenAI request.
   static gai.GenerationConfig? buildGenerationConfig(
     oai.ChatCompletionCreateRequest request,

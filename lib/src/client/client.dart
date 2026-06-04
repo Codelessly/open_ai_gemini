@@ -263,7 +263,11 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
         enableGoogleSearch: owner.enableGoogleSearch,
         enableUrlContext: owner.enableUrlContext,
       ),
-      toolConfig: ChatCompletionRequestConverter.buildToolConfig(request),
+      toolConfig: ChatCompletionRequestConverter.applyServerSideToolInvocations(
+        ChatCompletionRequestConverter.buildToolConfig(request),
+        enableGoogleSearch: owner.enableGoogleSearch,
+        enableUrlContext: owner.enableUrlContext,
+      ),
       generationConfig: ChatCompletionRequestConverter.buildGenerationConfig(request),
       cachedContent: owner.cachedContent,
     );
@@ -319,7 +323,11 @@ class _GeminiChatCompletionsResource extends ChatCompletionsResource {
         enableGoogleSearch: owner.enableGoogleSearch,
         enableUrlContext: owner.enableUrlContext,
       ),
-      toolConfig: ChatCompletionRequestConverter.buildToolConfig(request),
+      toolConfig: ChatCompletionRequestConverter.applyServerSideToolInvocations(
+        ChatCompletionRequestConverter.buildToolConfig(request),
+        enableGoogleSearch: owner.enableGoogleSearch,
+        enableUrlContext: owner.enableUrlContext,
+      ),
       generationConfig: ChatCompletionRequestConverter.buildGenerationConfig(request),
       cachedContent: owner.cachedContent,
     );

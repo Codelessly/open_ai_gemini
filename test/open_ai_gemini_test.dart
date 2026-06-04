@@ -479,6 +479,96 @@ void main() {
     });
   });
 
+  // Regression for the live 400 seen on gemini-3.1-pro-preview in a court
+  // with both function tools and native grounding:
+  //   ApiException(400): Please enable
+  //   tool_config.include_server_side_tool_invocations to use Built-in tools
+  //   with Function calling.
+  // Gemini 3.x rejects a request that mixes built-in/server-side tools
+  // (google_search / url_context) WITH function-declaration tools unless
+  // tool_config.includeServerSideToolInvocations is set. Our court agents
+  // always carry function tools (file/research/...), so enabling native
+  // grounding must also set this flag.
+  group('ChatCompletionRequestConverter.applyServerSideToolInvocations', () {
+    test('our setup: function tools + grounding → flag set, mixed tools built', () {
+      // Exactly the court request shape: a function tool + native grounding.
+      final request = oai.ChatCompletionCreateRequest(
+        model: 'gemini-3.1-pro-preview',
+        messages: [oai.ChatMessage.user('Research and call a tool')],
+        tools: [
+          oai.Tool.function(
+            name: 'file',
+            description: 'Read a file',
+            parameters: const {
+              'type': 'object',
+              'properties': {
+                'path': {'type': 'string'},
+              },
+            },
+          ),
+        ],
+        toolChoice: oai.ToolChoice.auto(),
+      );
+
+      // Tools list mixes function-declarations with built-in grounding tools —
+      // the exact combination Gemini 3.x rejects without the flag.
+      final tools = ChatCompletionRequestConverter.appendGroundingTools(
+        ChatCompletionRequestConverter.buildTools(request),
+        enableGoogleSearch: true,
+        enableUrlContext: true,
+      );
+      expect(tools, hasLength(3));
+      expect(tools![0].functionDeclarations, isNotNull);
+      expect(tools[1].googleSearch, isNotNull);
+      expect(tools[2].urlContext, isNotNull);
+
+      // The toolConfig MUST carry includeServerSideToolInvocations == true.
+      final toolConfig = ChatCompletionRequestConverter.applyServerSideToolInvocations(
+        ChatCompletionRequestConverter.buildToolConfig(request),
+        enableGoogleSearch: true,
+        enableUrlContext: true,
+      );
+      expect(toolConfig, isNotNull);
+      expect(toolConfig!.includeServerSideToolInvocations, isTrue);
+      // The existing tool-choice mapping must survive.
+      expect(toolConfig.functionCallingConfig, isNotNull);
+    });
+
+    test('null base + grounding on → creates a config with the flag', () {
+      final result = ChatCompletionRequestConverter.applyServerSideToolInvocations(
+        null,
+        enableGoogleSearch: true,
+        enableUrlContext: false,
+      );
+      expect(result, isNotNull);
+      expect(result!.includeServerSideToolInvocations, isTrue);
+    });
+
+    test('grounding off → base returned unchanged (no behavior change)', () {
+      const base = gai.ToolConfig(
+        functionCallingConfig: gai.FunctionCallingConfig(
+          mode: gai.FunctionCallingMode.auto,
+        ),
+      );
+      final result = ChatCompletionRequestConverter.applyServerSideToolInvocations(
+        base,
+        enableGoogleSearch: false,
+        enableUrlContext: false,
+      );
+      expect(result, same(base));
+      expect(result!.includeServerSideToolInvocations, isNull);
+    });
+
+    test('grounding off + null base → null', () {
+      final result = ChatCompletionRequestConverter.applyServerSideToolInvocations(
+        null,
+        enableGoogleSearch: false,
+        enableUrlContext: false,
+      );
+      expect(result, isNull);
+    });
+  });
+
   group('ChatCompletionResponseConverter', () {
     test('converts a text response', () {
       final response = gai.GenerateContentResponse(

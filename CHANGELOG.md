@@ -1,4 +1,8 @@
-## 0.1.0
+## 0.3.0
+
+- Upgrade dependencies.
+
+## 0.2.0
 
 - Initial release.
 - Bidirectional conversion between OpenAI Chat Completions and Gemini API formats.

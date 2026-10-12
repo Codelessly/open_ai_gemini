@@ -1,3 +1,9 @@
+## Unreleased
+
+- Update `googleai_dart` to `^13.0.0` and `openai_dart` to `^11.0.1`.
+- Map `ReasoningEffort.max` to `ThinkingLevel.high` and `FinishReason.escalation` to `stop`.
+- Require Dart `^3.13.0`.
+
 ## 0.3.0
 
 - Upgrade dependencies.

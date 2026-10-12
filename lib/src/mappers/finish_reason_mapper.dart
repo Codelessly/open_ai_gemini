@@ -38,6 +38,8 @@ class FinishReasonMapper {
       gai.FinishReason.missingThoughtSignature => oai.FinishReason.stop,
       gai.FinishReason.malformedResponse => oai.FinishReason.stop,
       gai.FinishReason.malformedFunctionCall => oai.FinishReason.stop,
+      // Escalation is a hand-off, not a content block.
+      gai.FinishReason.escalation => oai.FinishReason.stop,
       gai.FinishReason.other => oai.FinishReason.stop,
       gai.FinishReason.unspecified => oai.FinishReason.stop,
       null => null,

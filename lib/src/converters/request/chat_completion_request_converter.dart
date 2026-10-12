@@ -271,6 +271,7 @@ class ChatCompletionRequestConverter {
       oai.ReasoningEffort.medium => gai.ThinkingLevel.medium,
       oai.ReasoningEffort.high => gai.ThinkingLevel.high,
       oai.ReasoningEffort.xhigh => gai.ThinkingLevel.high,
+      oai.ReasoningEffort.max => gai.ThinkingLevel.high,
       oai.ReasoningEffort.unknown => gai.ThinkingLevel.medium,
     };
 
